@@ -24,11 +24,11 @@ library(countrycode)
 ## read in data
 
 ```{r}
-HDI <- read_csv(here::here("homework_4", "HDR21-22_Composite_indices_complete_time_series.csv"),
+HDI <- read_csv(here::here("data", "HDR23-24_Composite_indices_complete_time_series.csv"),
                        locale = locale(encoding = "latin1"),
                        na = " ", skip=0)
 
-World <- st_read("homework_4/World_Countries_(Generalized)/World_Countries__Generalized_.shp")
+World <- st_read("data/World_Countries.geojson")
 
 ```
 
@@ -69,7 +69,8 @@ Join_HDI <- World %>%
   left_join(., 
             HDIcols,
             # change to "aff_iso" = "iso_code"
-            by = c("iso" = "iso_code"))
+            # by = c("iso" = "iso_code"))
+            by = c("aff_iso" = "iso_code"))
 
 # 261 if using "aff_iso", 251 if using "iso". Could filter out the NA values.
 ```
