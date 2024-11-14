@@ -25,7 +25,7 @@ library(tmaptools)
 LondonBoroughs <- st_read(here::here("data", "statistical-gis-boundaries-london", "ESRI", "London_Borough_Excluding_MHW.shp"))
 ```
 
-### str
+### 查找与伦敦（E09）相关的地区代码位
 ```{r}
 library(stringr)
 BoroughMap <- LondonBoroughs %>%
@@ -33,9 +33,65 @@ BoroughMap <- LondonBoroughs %>%
   st_transform(., 27700)
 
 qtm(BoroughMap)
+summary(BoroughMap)
 
 
 
 ```
+### 读取英国所有蓝色牌匾的位置
+```{r}
+##Now get the location of all Blue Plaques in the City
+BluePlaques <- st_read("https://s3.eu-west-2.amazonaws.com/openplaques/open-plaques-london-2018-04-08.geojson")
+summary(BluePlaques)
+
+#plot the blue plaques in the city
+tmap_mode("plot")
+tm_shape(BoroughMap) +
+  tm_polygons(col = NA, alpha = 0.5) +
+tm_shape(BluePlaques) +
+  tm_dots(col = "blue")
+```
+## 数据清理
+```{r}
+#remove duplicates
+library(tidyverse)
+
+library(sf)
+BluePlaques <- distinct(BluePlaques)
+```
+## 空间子集
+```{r}
+BluePlaquesSub <- BluePlaques[BoroughMap,]
+#check to see that they've been removed
+tmap_mode("plot")
+tm_shape(BoroughMap) +
+  tm_polygons(col = NA, alpha = 0.5) +
+tm_shape(BluePlaquesSub) +
+  tm_dots(col = "blue")
+```
+
+## 空间连接
+```{r}
+Londonborough <- st_read(here::here("data",
+                                    "statistical-gis-boundaries-london", 
+                                    "ESRI", 
+                                    "London_Borough_Excluding_MHW.shp"))%>%
+  st_transform(., 27700)
+
+OSM <- st_read(here::here("data",
+                          "greater-london-latest-free.shp", 
+                          "gis_osm_pois_a_free_1.shp")) %>%
+  st_transform(., 27700) %>%
+  #select hotels only
+  filter(fclass == 'hotel')
+
+join_example <-  st_join(OSM, Londonborough)
+
+nrow(join_example)
+
+```
+
+
+
 
 
