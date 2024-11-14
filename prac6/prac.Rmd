@@ -90,6 +90,14 @@ join_example <-  st_join(OSM, Londonborough)
 nrow(join_example)
 
 ```
+```{r}
+OSM <- st_read(here::here("data",
+                          "greater-london-latest-free.shp", 
+                          "gis_osm_pois_a_free_1.shp")) %>%
+  st_transform(., 27700) %>%
+  #select hotels only
+  filter(fclass == 'hotel')
+```
 
 
 
