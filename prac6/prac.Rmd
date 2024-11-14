@@ -1,0 +1,41 @@
+---
+title: "Untitled"
+output: html_document
+date: "2024-11-12"
+---
+
+## spatstat包中的点模式分析功能
+
+```{r}
+#first library a few packages that we will use during the practical
+#note you may need to install them first...
+# install.packages("spatstat")
+library(spatstat)
+library(here)
+library(sp)
+library(tmap)
+library(sf)
+library(tmaptools)
+
+```
+
+## First, get the London Borough Boundaries
+
+```{r}
+LondonBoroughs <- st_read(here::here("data", "statistical-gis-boundaries-london", "ESRI", "London_Borough_Excluding_MHW.shp"))
+```
+
+### str
+```{r}
+library(stringr)
+BoroughMap <- LondonBoroughs %>%
+  dplyr::filter(str_detect(GSS_CODE, "^E09"))%>%
+  st_transform(., 27700)
+
+qtm(BoroughMap)
+
+
+
+```
+
+
