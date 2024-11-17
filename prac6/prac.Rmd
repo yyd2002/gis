@@ -4,12 +4,12 @@ output: html_document
 date: "2024-11-12"
 ---
 
-## spatstat包中的点模式分析功能
+## Q:对于任何一个伦敦行政区，该行政区内的蓝色牌匾是随机分布的还是呈现出某种分散或聚集的模式？
+
+## 读数据，spatstat包中的点模式分析功能
 
 ```{r}
 #first library a few packages that we will use during the practical
-#note you may need to install them first...
-# install.packages("spatstat")
 library(spatstat)
 library(here)
 library(sp)
@@ -19,13 +19,16 @@ library(tmaptools)
 
 ```
 
-## First, get the London Borough Boundaries
+### 1.get the London Borough Boundaries
 
 ```{r}
 LondonBoroughs <- st_read(here::here("data", "statistical-gis-boundaries-london", "ESRI", "London_Borough_Excluding_MHW.shp"))
+st_crs(LondonBoroughs)
+
 ```
 
-### 查找与伦敦（E09）相关的地区代码位
+### 2.查找与伦敦（E09）相关的地区代码位
+
 ```{r}
 library(stringr)
 BoroughMap <- LondonBoroughs %>%
@@ -34,11 +37,12 @@ BoroughMap <- LondonBoroughs %>%
 
 qtm(BoroughMap)
 summary(BoroughMap)
-
-
+st_crs(BoroughMap)
 
 ```
-### 读取英国所有蓝色牌匾的位置
+
+### 3.读取英国所有蓝色牌匾的位置
+
 ```{r}
 ##Now get the location of all Blue Plaques in the City
 BluePlaques <- st_read("https://s3.eu-west-2.amazonaws.com/openplaques/open-plaques-london-2018-04-08.geojson")
@@ -51,26 +55,45 @@ tm_shape(BoroughMap) +
 tm_shape(BluePlaques) +
   tm_dots(col = "blue")
 ```
-## 数据清理
+
+## 数据清理，移除行政区外的点
+
 ```{r}
 #remove duplicates
 library(tidyverse)
 
 library(sf)
 BluePlaques <- distinct(BluePlaques)
+st_crs(BluePlaques)
+
+# 将x转换为y的CRS
+BluePlaques <- st_transform(BluePlaques, crs = st_crs(BoroughMap))  
+
 ```
+
 ## 空间子集
+
 ```{r}
+# 保留 BluePlaques 中所有与 BoroughMap 的几何边界有空间关系的点
+# 默认的拓扑关系是 intersects（相交）
 BluePlaquesSub <- BluePlaques[BoroughMap,]
+
 #check to see that they've been removed
 tmap_mode("plot")
 tm_shape(BoroughMap) +
   tm_polygons(col = NA, alpha = 0.5) +
 tm_shape(BluePlaquesSub) +
   tm_dots(col = "blue")
+
+# add sparse=false to get the complete matrix.
+intersect_indices <-st_intersects(BoroughMap, BluePlaques)
+
 ```
 
 ## 空间连接
+
+将左侧数据集（在左连接中）更改为 OSM 数据
+
 ```{r}
 Londonborough <- st_read(here::here("data",
                                     "statistical-gis-boundaries-london", 
@@ -85,21 +108,110 @@ OSM <- st_read(here::here("data",
   #select hotels only
   filter(fclass == 'hotel')
 
+# 将 OSM 中的酒店数据与 Londonborough 中的行政区数据进行连接
 join_example <-  st_join(OSM, Londonborough)
 
 nrow(join_example)
 
 ```
+上周的airbnb数据
 ```{r}
-OSM <- st_read(here::here("data",
-                          "greater-london-latest-free.shp", 
-                          "gis_osm_pois_a_free_1.shp")) %>%
-  st_transform(., 27700) %>%
-  #select hotels only
-  filter(fclass == 'hotel')
+# read in the .csv
+# and make it into spatial data
+
+Airbnb <- read_csv("data/listings.csv") %>%
+  st_as_sf(., coords = c("longitude", "latitude"), 
+                   crs = 4326) %>%
+    st_transform(., 27700)%>%
+    #select entire places that are available all year
+    filter(room_type == 'Entire home/apt' & availability_365 =='365')
+
+
+# make a function for the join
+# functions are covered in practical 7
+# but see if you can work out what is going on
+# hint all you have to do is replace data1 and data2
+# with the data you want to use
+
+Joinfun <- function(data1, data2){
+
+output<- data1%>%
+  st_join(Londonborough,.) %>%
+  add_count(GSS_CODE, name="hotels_in_borough") 
+
+  return(output)
+}
+
+# use the function for hotels
+Hotels <- Joinfun(OSM, Londonborough)
+
+# then for airbnb
+Airbnb <- Joinfun(Airbnb, Londonborough)
+ 
+Hotels <- Hotels %>%
+  #at the moment each hotel is a row for the borough
+  #we just one one row that has number of airbnbs
+  group_by(., GSS_CODE, NAME)%>%
+  summarise(`Accomodation count` = unique(hotels_in_borough))
+
+Airbnb <- Airbnb %>%
+  group_by(., GSS_CODE, NAME)%>%
+  summarise(`Accomodation count` = unique(hotels_in_borough))
+
+```
+连接对象
+st_join默认使用st_intersects()。这意味着对于酒店数据，
+airbnb与每个酒店行政区相交的地方都会添加一个新行。
+```{r}
+# left_join<- left_join(Hotels, Airbnb,
+#             by = c("GSS_CODE" = "GSS_CODE"))
+all_accomodation <- st_join(Hotels, Airbnb)
+
+head(all_accomodation)
+```
+将参数更改为st_equals()
+```{r}
+all_accomodation2 <- st_join(Hotels, Airbnb, join = st_equals)
+
+head(all_accomodation2)
+```
+## 选择研究区域为Harrow
+```{r}
+#extract the borough
+
+# select by attribute
+Harrow <- BoroughMap %>%
+  filter(., NAME=="Harrow")
+
+#Check to see that the correct borough has been pulled out
+tm_shape(Harrow) +
+  tm_polygons(col = NA, alpha = 0.5)
+
+#clip the data to our single borough
+BluePlaquesSub <- BluePlaques[Harrow,]
+#check that it's worked
+tmap_mode("plot")
+
+tm_shape(Harrow) +
+  tm_polygons(col = NA, alpha = 0.5) +
+tm_shape(BluePlaquesSub) +
+  tm_dots(col = "blue")
 ```
 
+### 开始分析spatstat
+1.创建一个观察窗口
+2.创建一个点模式ppp对象
+```{r}
+#now set a window as the borough boundary
+window <- as.owin(Harrow)
+plot(window)
 
-
-
+#create a sp object
+BluePlaquesSub<- BluePlaquesSub %>%
+  as(., 'Spatial')
+#create a ppp object
+BluePlaquesSub.ppp <- ppp(x=BluePlaquesSub@coords[,1],
+                          y=BluePlaquesSub@coords[,2],
+                          window=window)
+```
 
