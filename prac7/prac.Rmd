@@ -97,6 +97,7 @@ tm_shape(points_sf_joined) +
         title="Blue Plaque Density")
 ```
 ## 权重矩阵
+1.定义一个Wij空间权重矩阵
 ```{r}
 # install.packages("spdep")
 library(spdep)
@@ -108,5 +109,18 @@ coordsW <- points_sf_joined%>%
   st_geometry()
   
 plot(coordsW,axes=TRUE)
+```
+2.生成一个空间权重矩阵
+```{r}
+#firstly, create a neighbours list
+LWard_nb <- points_sf_joined %>%
+  poly2nb(., queen=T)
+
+summary(LWard_nb)
+
+#then, plot them
+plot(LWard_nb, st_geometry(coordsW), col="red")
+#add a map underneath
+plot(points_sf_joined$geometry, add=T)
 ```
 
