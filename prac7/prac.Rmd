@@ -123,4 +123,44 @@ plot(LWard_nb, st_geometry(coordsW), col="red")
 #add a map underneath
 plot(points_sf_joined$geometry, add=T)
 ```
+3.矩阵样式
+```{r}
+#create a spatial weights matrix from these weights
+Lward.lw <- LWard_nb %>%
+  nb2mat(., style="B")
+
+sum(Lward.lw)
+
+# 行标准化
+sum(Lward.lw[1,])
+```
+## 自相关
+
+定义完矩阵，可以进行统计数据的计算
+1. Moran's I 需要空间权重列表类型对象而不是矩阵
+是否有聚集值（接近1）或分散值（接近-1）
+```{r}
+Lward.lw <- LWard_nb %>%
+  nb2listw(., style="C")
+
+I_LWard_Global_Density <- points_sf_joined %>%
+  pull(density) %>%
+  as.vector()%>%
+  moran.test(., Lward.lw)
+
+I_LWard_Global_Density
+
+```
+2.Geary’s C 
+是否聚类
+```{r}
+C_LWard_Global_Density <- 
+  points_sf_joined %>%
+  pull(density) %>%
+  as.vector()%>%
+  geary.test(., Lward.lw)
+
+C_LWard_Global_Density
+```
+3.Getis Ord
 
