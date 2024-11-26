@@ -1,0 +1,153 @@
+---
+title: "Untitled"
+output: html_document
+date: "2024-11-26"
+---
+
+## 读取数据
+
+load package
+
+```{r}
+#library a bunch of packages we may (or may not) use - install them first if not installed already. 
+library(tidyverse)
+library(tmap)
+library(plotly)
+library(broom)
+library(mapview)
+library(sf)
+library(sp)
+library(spdep)
+library(car)
+library(fs)
+library(janitor)
+```
+
+read data
+
+```{r}
+#读取病房数据
+#download a zip file containing some boundaries we want to use
+
+# download.file("https://data.london.gov.uk/download/statistical-gis-boundary-files-london/9ba8c833-6370-4b11-abdc-314aa020d5e0/statistical-gis-boundaries-london.zip", 
+#               destfile="data/statistical-gis-boundaries-london.zip")
+# 解压
+listfiles<-dir_info(here::here("data")) %>%
+  dplyr::filter(str_detect(path, ".zip")) %>%
+  dplyr::select(path)%>%
+  pull()%>%
+  #print out the .gz file
+  print()%>%
+  as.character()%>%
+  utils::unzip(exdir=here::here("data"))
+
+# 读取边界数据
+#look what is inside the zip
+
+Londonwards<-fs::dir_info(here::here("data", 
+                                 "statistical-gis-boundaries-london", 
+                                 "ESRI"))%>%
+  #$ means exact match
+  dplyr::filter(str_detect(path, 
+                           "London_Ward_CityMerged.shp$"))%>%
+  dplyr::select(path)%>%
+  dplyr::pull()%>%
+  #read in the file in
+  sf::st_read()
+
+#check the data
+qtm(Londonwards)
+```
+
+其他数据
+
+```{r}
+#read in some attribute data
+# LondonWardProfiles <- read_csv("https://data.london.gov.uk/download/ward-profiles-and-atlas/772d2d64-e8c6-46cb-86f9-e52b4c7851bc/ward-profiles-excel-version.csv", 
+#                                col_names = TRUE, 
+#                                locale = locale(encoding = 'Latin1'))
+
+# 读入并清理属性数据
+LondonWardProfiles <- read_csv("https://data.london.gov.uk/download/ward-profiles-and-atlas/772d2d64-e8c6-46cb-86f9-e52b4c7851bc/ward-profiles-excel-version.csv", 
+                               na = c("", "NA", "n/a"), 
+                               locale = locale(encoding = 'Latin1'), 
+                               col_names = TRUE)
+
+#check all of the columns have been read in correctly
+Datatypelist <- LondonWardProfiles %>% 
+  summarise_all(class) %>%
+  pivot_longer(everything(), 
+               names_to="All_variables", 
+               values_to="Variable_class")
+
+Datatypelist
+```
+
+使用通用 ID 将两者合并在一起，使用病房代码
+
+```{r}
+#merge boundaries and data
+LonWardProfiles <- Londonwards%>%
+  left_join(.,
+            LondonWardProfiles, 
+            by = c("GSS_CODE" = "New code"))
+
+#let's map our dependent variable to see if the join has worked:
+tmap_mode("plot")
+qtm(LonWardProfiles, 
+    fill = "Average GCSE capped point scores - 2014", 
+    borders = NULL,  
+    fill.palette = "Blues")
+```
+
+添加学校数据
+
+```{r}
+#might be a good idea to see where the secondary schools are in London too
+london_schools <- read_csv("https://data.london.gov.uk/download/london-schools-atlas/57046151-39a0-45d9-8dc0-27ea7fd02de8/all_schools_xy_2016.csv")
+
+#from the coordinate values stored in the x and y columns, which look like they are latitude and longitude values, create a new points dataset
+lon_schools_sf <- st_as_sf(london_schools, 
+                           coords = c("x","y"), 
+                           crs = 4326)
+
+lond_sec_schools_sf <- lon_schools_sf %>%
+  filter(PHASE=="Secondary")
+
+tmap_mode("plot")
+qtm(lond_sec_schools_sf)
+```
+
+## 分析GCSE考试成绩
+
+使用不同的回归模型，探索影响GCSE考试成绩的因素\
+**1.研究问题：哪些因素可能导致整个城市的平均 GCSE 分数存在差异？**
+
+回归基础：线性关系---散点图
+```{r}
+q <- qplot(x = `Unauthorised Absence in All Schools (%) - 2013`, 
+           y = `Average GCSE capped point scores - 2014`, 
+           data=LonWardProfiles)
+#plot with a regression line - note, I've added some jitter here as the x-scale is rounded
+q + stat_smooth(method="lm", se=FALSE, size=1) + 
+  geom_jitter()
+
+```
+在R中运行回归模型
+```{r}
+# 1.清理并筛选数据
+#run the linear regression model and store its outputs in an object called model1
+Regressiondata<- LonWardProfiles%>%
+  clean_names()%>%
+  dplyr::select(average_gcse_capped_point_scores_2014, 
+                unauthorised_absence_in_all_schools_percent_2013)
+
+#now model
+model1 <- Regressiondata %>%
+  lm(average_gcse_capped_point_scores_2014 ~
+               unauthorised_absence_in_all_schools_percent_2013,
+     data=.)
+
+
+```
+
