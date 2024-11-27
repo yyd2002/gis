@@ -148,6 +148,25 @@ model1 <- Regressiondata %>%
                unauthorised_absence_in_all_schools_percent_2013,
      data=.)
 
+#show the summary of those outputs
+summary(model1)
+```
+解释
+1. Coefficient Estimates：β0（截距）和 β1（斜率）参数估计值来自方程1。您会注意到，β0=371.471和β1= −41.237
+2. Coefficient Standard Errors：如果未经授权缺勤增加 1%，虽然模型显示我们可能预计 GSCE 分数会下降 -41.2分，但平均而言可能会下降约 1.9 分。tips：系数代表 1 个单位的变化，这里是 %，因为变量是未经授权缺课的百分比，所以 1 个单位代表 1% 的变化
+3. R方：本例中，r2值为 0.42 表明 GCSE 成绩的大约 42% 的变化可以用未经批准缺勤的变化来解释
 
+broom整理输出
+```{r}
+library(broom)
+tidy(model1)
+glance(model1)
+
+# 每个点的预测
+library(tidypredict)
+Regressiondata %>%
+  tidypredict_to_column(model1)
 ```
 
+
+ 
