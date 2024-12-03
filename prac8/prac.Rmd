@@ -181,11 +181,53 @@ lm_fit <-
                unauthorised_absence_in_all_schools_percent_2013,
      data=Regressiondata)
 
-# we cover tidy and glance in a minute...
+# 查看模型参数
 tidy(lm_fit)
-
+# 查看模型概况
 glance(lm_fit)
+
 ```
+## 线性回归的假设
+```{r}
+# 1.查看频率分布
+
+ggplot(LonWardProfiles, aes(x=`Average GCSE capped point scores - 2014`)) + 
+  geom_histogram(aes(y = ..density..),
+                 binwidth = 5) + 
+  geom_density(colour="red", 
+               size=1, 
+               adjust=1)
+
+ggplot(LonWardProfiles, aes(x=`Unauthorised Absence in All Schools (%) - 2013`)) +
+  geom_histogram(aes(y = ..density..),
+                 binwidth = 0.1) + 
+  geom_density(colour="red",
+               size=1, 
+               adjust=1)
+
+
+```
+这两种分布为相对“正态”分布或高斯分布，有可能具有线性相关性（如果它们确实相关）。
+
+将此与房价中值变量进行对比：
+```{r}
+library(ggplot2)
+
+# from 21/10 there is an error on the website with 
+# median_house_price_2014 being called median_house_price<c2>2014
+# this was corrected around 23/11 but can be corrected with rename..
+
+LonWardProfiles <- LonWardProfiles %>%
+  #try removing this line to see if it works...
+  dplyr::rename(median_house_price_2014 =`Median House Price (£) - 2014`)%>%
+  janitor::clean_names()
+
+ggplot(LonWardProfiles, aes(x=median_house_price_2014)) + 
+  geom_histogram()
+
+# 非正态和/或正“偏斜”分布
+```
+
 
 
  
