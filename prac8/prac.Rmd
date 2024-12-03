@@ -29,8 +29,8 @@ read data
 #读取病房数据
 #download a zip file containing some boundaries we want to use
 
-# download.file("https://data.london.gov.uk/download/statistical-gis-boundary-files-london/9ba8c833-6370-4b11-abdc-314aa020d5e0/statistical-gis-boundaries-london.zip", 
-#               destfile="data/statistical-gis-boundaries-london.zip")
+download.file("https://data.london.gov.uk/download/statistical-gis-boundary-files-london/9ba8c833-6370-4b11-abdc-314aa020d5e0/statistical-gis-boundaries-london.zip",
+              destfile="data/statistical-gis-boundaries-london.zip")
 # 解压
 listfiles<-dir_info(here::here("data")) %>%
   dplyr::filter(str_detect(path, ".zip")) %>%
@@ -63,9 +63,9 @@ qtm(Londonwards)
 
 ```{r}
 #read in some attribute data
-# LondonWardProfiles <- read_csv("https://data.london.gov.uk/download/ward-profiles-and-atlas/772d2d64-e8c6-46cb-86f9-e52b4c7851bc/ward-profiles-excel-version.csv", 
-#                                col_names = TRUE, 
-#                                locale = locale(encoding = 'Latin1'))
+LondonWardProfiles <- read_csv("https://data.london.gov.uk/download/ward-profiles-and-atlas/772d2d64-e8c6-46cb-86f9-e52b4c7851bc/ward-profiles-excel-version.csv",
+                               col_names = TRUE,
+                               locale = locale(encoding = 'Latin1'))
 
 # 读入并清理属性数据
 LondonWardProfiles <- read_csv("https://data.london.gov.uk/download/ward-profiles-and-atlas/772d2d64-e8c6-46cb-86f9-e52b4c7851bc/ward-profiles-excel-version.csv", 
@@ -166,6 +166,25 @@ glance(model1)
 library(tidypredict)
 Regressiondata %>%
   tidypredict_to_column(model1)
+```
+tidymodels包进行线性回归分析
+```{r}
+library(tidymodels)
+
+# set the model
+lm_mod <- linear_reg()
+
+# fit the model
+lm_fit <- 
+  lm_mod %>% 
+  fit(average_gcse_capped_point_scores_2014 ~
+               unauthorised_absence_in_all_schools_percent_2013,
+     data=Regressiondata)
+
+# we cover tidy and glance in a minute...
+tidy(lm_fit)
+
+glance(lm_fit)
 ```
 
 
