@@ -294,7 +294,8 @@ model_data2 <- model2 %>%
 LonWardProfiles <- LonWardProfiles %>%
   mutate(model2resids = residuals(model2))
 ```
-检查多重共线性
+### 检查多重共线性
+1.通过相关图：计算变量之间的乘积矩相关系数，寻找相关性小于 0.8 的值
 ```{r}
 install.packages("corrr")
 library(corrr)
@@ -312,5 +313,25 @@ Correlation <- LonWardProfiles %>%
 
 #visualise the correlation matrix
 rplot(Correlation)
-```
 
+print(Correlation)
+
+```
+两个自变量之间相关性较低为30%左右
+
+2.检查多重共线性的另一种方法是检查模型的 VIF，超过10，则需考虑删除该变量
+```{r}
+vif(model2)
+```
+如果想在模型中添加更多变量，通过计算整个数据集的相关矩阵或在运行模型后检查 VIF 
+```{r}
+position <- c(10:74)
+
+Correlation_all<- LonWardProfiles %>%
+  st_drop_geometry()%>%
+  dplyr::select(position)%>%
+    correlate()
+
+rplot(Correlation_all)
+```
+3.另一种方法是同方差
