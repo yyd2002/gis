@@ -335,3 +335,19 @@ Correlation_all<- LonWardProfiles %>%
 rplot(Correlation_all)
 ```
 3.另一种方法是同方差
+```{r}
+#print some model diagnositcs. 
+par(mfrow=c(2,2))    #plot to 2 by 2 array
+plot(model2)
+```
+p1:查看变量之间的线性关系假设
+p2:检查残差（观察值减去预测值）是否服从正态分布
+p3:检查残差的方差是否均匀
+p4:识别异常值
+```{r}
+install.packages("performance")
+library(performance)
+
+check_model(model2, check="all")
+```
+
