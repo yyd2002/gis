@@ -1,0 +1,21 @@
+---
+title: "Untitled"
+output: html_document
+date: "2024-12-10"
+
+```{r}
+#first library a few packages that we will use during the practical
+#note you may need to install them first...
+library(spatstat)
+library(here)
+library(sp)
+library(tmap)
+library(sf)
+library(tmaptools)
+```
+
+```{r}
+##First, get the London Borough Boundaries
+San Francisco <- st_read(here::here("Prac1_data", "statistical-gis-boundaries-london", "ESRI", "London_Borough_Excluding_MHW.shp"))
+```
+
