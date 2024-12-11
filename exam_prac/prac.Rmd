@@ -115,7 +115,7 @@ tm_shape(points_sf_joined) +
  
 adding census data
 ```{r}
-census_health <- read_csv("data/publichealth.csv",skip=1)%>%
+census_health <- read_csv("D:/1UCL/casa0005/data/publichealth.csv",skip=1)%>%
   clean_names()
 
 census_health2 <- census_health %>%
@@ -127,7 +127,7 @@ points_sf_joined_health <- points_sf_joined %>%
 
 ```
 ```{r}
-census_income <- read_csv("data/income.csv",skip=1)%>%
+census_income <- read_csv("D:/1UCL/casa0005/data/income.csv",skip=1)%>%
   clean_names()
 
 census_income2 <- census_income %>%
@@ -138,7 +138,7 @@ points_sf_joined_health_income <- points_sf_joined_health %>%
   left_join(., census_income2,by=c("geoid10"="tract"))
 ```
 ```{r}
-census_pover <- read_csv("data/poverty_status.csv",skip=1)%>%
+census_pover <- read_csv("D:/1UCL/casa0005/data/poverty_status.csv",skip=1)%>%
   clean_names()
 
 census_pover2 <- census_pover %>%
