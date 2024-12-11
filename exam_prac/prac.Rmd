@@ -2,20 +2,215 @@
 title: "Untitled"
 output: html_document
 date: "2024-12-10"
-
+---
 ```{r}
 #first library a few packages that we will use during the practical
 #note you may need to install them first...
-library(spatstat)
 library(here)
-library(sp)
-library(tmap)
+library(janitor)
 library(sf)
-library(tmaptools)
+library(tidyverse)
+library(spatstat)
+library(tmap)
+library(ggplot2)
+```
+
+read data source:
+<https://data.sfgov.org/Geographic-Locations-and-Boundaries/Census-2010-Tracts/n6fe-r6rd/about_data>
+```{r}
+##First, get the London Borough Boundaries
+SanFrancisco <- st_read("data/Census 2010 Tracts_20241210/geo_export_e8a97388-20a8-42a2-8cf9-db2f2437e863.shp") %>%
+  st_transform(.,crs=7131)
+
+
+graffiti <- read_csv("D:/1UCL/casa0005/data/Graffiti_20241203.csv",
+                     locale = locale(encoding = "latin1"),
+                     na = c("NA", "n/a")) %>% 
+  clean_names()
+
+graffiti2<- graffiti%>%
+  separate(.,point, into = c("latitude", "longitude"), sep = ", ", convert = TRUE)
+
+# 清理 latitude 和 longitude 列中的括号，并转换为数值
+graffiti2 <- graffiti2 %>%
+  mutate(
+    latitude = parse_number(latitude),  # 去除括号并转换为数值
+    longitude = parse_number(longitude) # 去除括号并转换为数值
+  )
+graffiti2
+
+#check all of the columns have been read in correctly
+Datatypelist <- graffiti2 %>%
+  summarise_all(class) %>%
+  pivot_longer(everything(),
+               names_to="All_variables",
+               values_to="Variable_class")
+
+Datatypelist
+
+graffiti3 <- graffiti2%>%
+  # sf对象的坐标列不允许存在缺失值
+  filter(longitude != 0)%>%
+  filter(latitude != 0)%>%
+  st_as_sf(., coords = c("longitude", "latitude"),
+         crs = 4326)
+
+graffiti4 <- graffiti3%>%
+  filter(str_detect(closed,"2020"))%>%
+  st_transform(., crs=7131)
+
+# 空间子集
+graffiti_within <- graffiti4[SanFrancisco,]
+
+tmap_mode("plot")
+tm_shape(SanFrancisco) + 
+  tm_polygons(col = NA, alpha=0.5) +
+  tm_shape(graffiti_within) + 
+  tm_dots(col = "blue")
+
+```
+st join
+```{r}
+points_sf_joined <- SanFrancisco%>%
+  st_join(graffiti_within)%>%
+  add_count(geoid10)%>%
+  janitor::clean_names()%>%
+  # calculate area
+  mutate(area=st_area(.))%>%
+  #then density of the points per community area
+  mutate(density =n/area)%>%
+  dplyr::select(geoid10, neighborhood, density)%>%
+  group_by(geoid10)%>%
+  summarise(geoid10=first(geoid10),
+            neighborhood=first(neighborhood),
+            density=first(density))
+```
+st intersects
+```{r}
+# 确保 graffiti_within 和 SanFrancisco 都是 sf 对象
+points_intersects <- graffiti_within[SanFrancisco, , op = st_intersects]
+
+
+tmap_mode("plot")
+tm_shape(points_intersects) + 
+  tm_dots(col = "blue")
+
+
+
+```
+```{r}
+points_sf_joined <- SanFrancisco%>%
+  mutate(n = lengths(st_intersects(.,graffiti_within)))%>%
+  janitor::clean_names()%>%
+  # calculate area
+  mutate(area=st_area(.))%>%
+  #then density of the points per community area
+  mutate(density =n/area)
+  
+
+tmap_mode("plot")
+tm_shape(points_sf_joined) + 
+  tm_polygons(col = NA, alpha = 0.5)
+```
+ 
+adding census data
+```{r}
+census_health <- read_csv("data/publichealth.csv",skip=1)%>%
+  clean_names()
+
+census_health2 <- census_health %>%
+  select(geography, geographic_area_name, estimate_total_civilian_noninstitutionalized_population)%>%
+  mutate(tract = str_sub(geography, start =10, end = 20))
+
+points_sf_joined_health <- points_sf_joined %>%
+  left_join(., census_health2,by=c("geoid10"="tract"))
+
+```
+```{r}
+census_income <- read_csv("data/income.csv",skip=1)%>%
+  clean_names()
+
+census_income2 <- census_income %>%
+  select(geography, geographic_area_name, estimate_households_total)%>%
+  mutate(tract = str_sub(geography, start =10, end = 20))
+
+points_sf_joined_health_income <- points_sf_joined_health %>%
+  left_join(., census_income2,by=c("geoid10"="tract"))
+```
+```{r}
+census_pover <- read_csv("data/poverty_status.csv",skip=1)%>%
+  clean_names()
+
+census_pover2 <- census_pover %>%
+  select(geography, geographic_area_name, estimate_total_population_for_whom_poverty_status_is_determined_age_under_18_years)%>%
+  mutate(tract = str_sub(geography, start =10, end = 20))
+
+points_sf_joined_health_income_pover <- points_sf_joined_health_income %>%
+  left_join(., census_pover2,by=c("geoid10"="tract"))
+```
+回归
+```{r}
+# let's check the distribution of these variables first
+library(ggplot2)
+library(car)
+
+# 对第一个自变量进行变换分析
+symbox(~estimate_households_total, 
+       points_sf_joined_health_income_pover, 
+       na.rm = TRUE, 
+       powers = seq(-3, 3, by = 0.5))
+
+# 对第二个自变量进行变换分析
+symbox(~estimate_total_civilian_noninstitutionalized_population, 
+       points_sf_joined_health_income_pover, 
+       na.rm = TRUE, 
+       powers = seq(-3, 3, by = 0.5))
+
+# 自变量1: estimate_households_total
+ggplot(points_sf_joined_health_income_pover, aes(x = (estimate_households_total)^1.5)) +
+  geom_histogram(binwidth = 6000, fill = "blue", color = "black", alpha = 0.7) +
+  labs(title = "Histogram of Household Estimates",
+       x = "Household Estimates",
+       y = "Frequency") +
+  theme_minimal()
+
+
+# 自变量2: estimate_total_civilian_noninstitutionalized_population
+ggplot(points_sf_joined_health_income_pover, aes(x = estimate_total_civilian_noninstitutionalized_population)) +
+  geom_histogram(binwidth = 100, fill = "green", color = "black", alpha = 0.7) +
+  labs(title = "Histogram of Civilian Population Estimates",
+       x = "Civilian Population",
+       y = "Frequency") +
+  theme_minimal()
+
+# 自变量3: estimate_total_population_for_whom_poverty_status_is_determined_age_under_18_years
+ggplot(points_sf_joined_health_income_pover, 
+       aes(x = log(estimate_total_population_for_whom_poverty_status_is_determined_age_under_18_years))) +  
+  geom_histogram(binwidth = 0.5, fill = "purple", color = "black", alpha = 0.7) + 
+  labs(
+    title = "Histogram of Log-Transformed Poverty Status (Under 18)",
+    x = "Log of Poverty Status (Under 18)",
+    y = "Frequency"
+  ) +
+  theme_minimal()
+
+
+
 ```
 
 ```{r}
-##First, get the London Borough Boundaries
-San Francisco <- st_read(here::here("Prac1_data", "statistical-gis-boundaries-london", "ESRI", "London_Borough_Excluding_MHW.shp"))
+library(units)
+
+
+# 构建多元回归模型
+model1 <- points_sf_joined_health_income_pover %>%
+  lm(density_numeric ~
+               estimate_households_total+estimate_total_civilian_noninstitutionalized_population+estimate_total_population_for_whom_poverty_status_is_determined_age_under_18_years,
+     data=.)
+
+# 查看回归结果
+summary(model1)
+
+
 ```
 
