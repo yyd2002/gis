@@ -69,7 +69,7 @@ tm_shape(SanFrancisco) +
   tm_dots(col = "blue")
 
 ```
-st join
+st join ××
 ```{r}
 points_sf_joined <- SanFrancisco%>%
   st_join(graffiti_within)%>%
@@ -99,7 +99,7 @@ tm_shape(points_intersects) +
 
 ```
 ```{r}
-points_sf_joined <- SanFrancisco%>%
+points_sf_joined2 <- SanFrancisco%>%
   mutate(n = lengths(st_intersects(.,graffiti_within)))%>%
   janitor::clean_names()%>%
   # calculate area
@@ -109,7 +109,7 @@ points_sf_joined <- SanFrancisco%>%
   
 
 tmap_mode("plot")
-tm_shape(points_sf_joined) + 
+tm_shape(points_sf_joined2) + 
   tm_polygons(col = NA, alpha = 0.5)
 ```
  
